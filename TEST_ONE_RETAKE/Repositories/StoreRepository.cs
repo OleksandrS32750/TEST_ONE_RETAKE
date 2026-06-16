@@ -77,51 +77,59 @@ namespace TEST_ONE_RETAKE.Repositories
             await connection.OpenAsync();
             await using var transaction = connection.BeginTransaction();
 
-    
-            string Code;
-
-            await using (var command = new SqlCommand("INSERT INTO Stores (Code,Name) OUTPUT INSERTED.Code VALUES (@Code,@Name)", connection, transaction))
+            try
             {
-                command.Parameters.AddWithValue("@Code", createStoreDTO.Code);
-                command.Parameters.AddWithValue("@Name", createStoreDTO.Name);
-                Code = (string)await command.ExecuteScalarAsync();
-            }
+                string Code;
 
-            if (createStoreDTO.BookDTOs is not null)
-            {
+                await using (var command = new SqlCommand("INSERT INTO Stores (Code,Name) OUTPUT INSERTED.Code VALUES (@Code,@Name)", connection, transaction))
+                {
+                    command.Parameters.AddWithValue("@Code", createStoreDTO.Code);
+                    command.Parameters.AddWithValue("@Name", createStoreDTO.Name);
+                    Code = (string)await command.ExecuteScalarAsync();
+                }
+
+                if (createStoreDTO.BookDTOs is not null)
+                {
                     foreach (var bookDTO in createStoreDTO.BookDTOs)
                     {
                         // to check if book with provided code exists in database
                         int BookId;
 
                         await using (var bookCommand = new SqlCommand("Select Id FROM Book Where Id = @Id", connection, transaction))
-                            {
-                                bookCommand.Parameters.AddWithValue("@Id", bookDTO.Id);
-
-                                var existingBookId = await bookCommand.ExecuteScalarAsync();
-
-                                if (existingBookId is not null)
-                                {
-                                    BookId = (int)existingBookId;
-                                } else
                         {
-                                return $"Wrong Book Id : {bookDTO.Id}"; // no book in database => cant add it to store,provide errmsg
-                        }
-                            }
+                            bookCommand.Parameters.AddWithValue("@Id", bookDTO.Id);
 
-                    await using (var command = new SqlCommand("INSERT INTO StoreBooks (StoreCode,BookId,Stock,SellingPrice) VALUES (@StoreCode,@BookId,@Stock,@SellingPrice)", connection, transaction))
-                    {
-                        command.Parameters.AddWithValue("@StoreCode", Code);
-                        command.Parameters.AddWithValue("@BookId", bookDTO.Id);
-                        command.Parameters.AddWithValue("@Stock", bookDTO.Stock);
-                        command.Parameters.AddWithValue("@SellingPrice", bookDTO.SellingPrice);
-                        await command.ExecuteNonQueryAsync();
+                            var existingBookId = await bookCommand.ExecuteScalarAsync();
+
+                            if (existingBookId is not null)
+                            {
+                                BookId = (int)existingBookId;
+                            }
+                            else
+                            {
+                                return $"Wrong Book Id : {bookDTO.Id}"; // no book in database => cant add it to store,provide errmsg
+                            }
+                        }
+
+                        await using (var command = new SqlCommand("INSERT INTO StoreBooks (StoreCode,BookId,Stock,SellingPrice) VALUES (@StoreCode,@BookId,@Stock,@SellingPrice)", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@StoreCode", Code);
+                            command.Parameters.AddWithValue("@BookId", bookDTO.Id);
+                            command.Parameters.AddWithValue("@Stock", bookDTO.Stock);
+                            command.Parameters.AddWithValue("@SellingPrice", bookDTO.SellingPrice);
+                            await command.ExecuteNonQueryAsync();
+                        }
                     }
                 }
-            }
 
-            // null,if no errmsgs occured
-            return null;
+                // null,if no errmsgs occured
+                return null;
+            } catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+           
         }
 
    }
