@@ -105,7 +105,7 @@ namespace TEST_ONE_RETAKE.Repositories
                                     BookId = (int)existingBookId;
                                 } else
                         {
-                                return $"Wrong Book Id : {bookDTO.Id}"; // no book => wrong input
+                                return $"Wrong Book Id : {bookDTO.Id}"; // no book in database => cant add it to store,provide errmsg
                         }
                             }
 
@@ -119,6 +119,8 @@ namespace TEST_ONE_RETAKE.Repositories
                     }
                 }
             }
+
+            // null,if no errmsgs occured
             return null;
         }
 
